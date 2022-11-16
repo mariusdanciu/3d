@@ -5,17 +5,35 @@ use crate::model::figure::*;
 use crate::model::mat::*;
 use noise::{Perlin, NoiseFn};
  
+struct Model {
+    window: WindowId
+}
+
+
 fn main() {
 
-    nannou::sketch(view).run();
+    //nannou::sketch(view).run();
+    nannou::app(model).update(update).run();
+}
+
+fn model(app: &App) -> Model {
+    let window = app.new_window().view(view).build().unwrap();
+    Model { 
+       window
+    }
+}
+
+fn update(_app: &App, model: &mut Model, update: Update) {
 
 }
+
+
 
 fn map(x: f32, in_min: f32, in_max: f32,  out_min: f32,  out_max: f32) -> f32 {
    (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 }
 
-fn view(app: &App, frame: Frame) {
+fn view(app: &App, model: &Model, frame: Frame) {
 
     // Begin drawing
     let draw = app.draw();
@@ -23,10 +41,10 @@ fn view(app: &App, frame: Frame) {
     // Clear the background to blue.
     draw.background().color(WHITE);
 
-    let r = app.window_rect();
+    let viewport = app.window_rect();
 
     let view = viewer(
-        [0., 0.9, 3.], 
+        [0., 1.2, 4.], 
         [0., 0., 0.],
         [0., 1., 0.]);
 
@@ -64,7 +82,7 @@ fn view(app: &App, frame: Frame) {
                 }
                 xoff += 0.09;
             }
-            zoff += 0.12;
+            zoff += 0.1;
         }
 
     let local = Mesh{
@@ -73,10 +91,12 @@ fn view(app: &App, frame: Frame) {
     };
 
     
+    
 
-    let transform = translation_mat(-1.3, 0., 0.);
+    let transform = translation_mat(-1., 0., 0.);
 
-    let mat = (projection * view * transform * local).norm_z();
+    let mat = (projection * view * transform * local)
+        .norm_z(viewport.w() as f32, viewport.h() as f32);
 
     draw_mesh(&draw, mat);
 

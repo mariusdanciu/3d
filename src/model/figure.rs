@@ -17,11 +17,11 @@ impl Vertex {
         ]
     }
 
-    pub fn norm_z(self) -> Vertex {
+    pub fn norm_z(self, x_size: f32, y_size: f32) -> Vertex {
         if self.w != 0.0 {
             return Vertex { 
-                x: self.x / self.w * 400., 
-                y: self.y / self.w * 400., 
+                x: self.x / self.w * x_size, 
+                y: self.y / self.w * y_size, 
                 z: self.z / self.w, 
                 w: 1. / self.w
             }
@@ -50,11 +50,11 @@ impl From<[f32; 4]> for Vertex {
 
 impl Mesh {
     
-    pub fn norm_z(self) -> Mesh {
+    pub fn norm_z(self, x_size: f32, y_size: f32) -> Mesh {
         let mut nv: Vec<Vertex> = vec![];
 
         for v in self.vertexes {
-            nv.push(v.norm_z());
+            nv.push(v.norm_z(x_size, y_size));
         }
 
         Mesh { 
