@@ -112,10 +112,10 @@ pub fn rotate_x_mat(o: f32) -> Mat4x4 {
 pub fn rotate_y_mat(o: f32) -> Mat4x4 {
     Mat4x4 {
      mat: [
-         [f32::cos(o),    0.,   f32::sin(o),     0.],
-         [0.,                   1.,   0.,                   0.],
-         [-f32::sin(o),   0.,   f32::cos(o),     0.],
-         [0.,                   0.,   0.,                   1.],
+         [f32::cos(o),     0.,   f32::sin(o),      0.],
+         [0.,                    1.,   0.,                    0.],
+         [-f32::sin(o),    0.,   f32::cos(o),     0.],
+         [0.,                    0.,   0.,                    1.],
      ]
     }
 }
@@ -183,13 +183,14 @@ pub fn viewer(eye : [f32; 3], at: [f32; 3], up: [f32; 3]) -> Mat4x4 {
 pub fn perspective_projection(fov: f32, aspect: f32, z_far: f32, z_near: f32) -> Mat4x4 {
 
     let tan = 1. / (fov * 0.5).tan();
- 
+    let dist = z_near - z_far;
+
     Mat4x4 {
      mat: [
-         [aspect * tan,   0.,       0.,                         0.],
-         [0.,             tan,      0.,                         0.],
-         [0.,             0.,       -z_far / (z_far - z_near),  z_far * z_near / (z_far - z_near)],
-         [0.,             0.,       -1.,                        0.],
+         [tan / aspect,           0.,         0.,                                   0.],
+         [0.,                     tan,        0.,                                   0.],
+         [0.,                     0.,         (-z_near - z_far) / dist,             2. * z_far * z_near / dist],
+         [0.,                     0.,         1.,                                   0.],
      ]
     }
      

@@ -1,10 +1,17 @@
-mod model;
 
-use nannou::prelude::*;
-use crate::model::figure::*;
-use crate::model::mat::*;
-use noise::{Perlin, NoiseFn};
+use common::model::figure::*;
+use common::model::mat::*;
+use nannou::color::BLACK;
+use nannou::geom::pt2;
 use nannou::event::*;
+use nannou::event::WindowEvent::*;
+use nannou::color::*;
+use nannou::*;
+use crate::noise::{Perlin, NoiseFn};
+
+use nannou::prelude::WindowId;
+
+
 
 struct Model {
     window: WindowId,
@@ -30,14 +37,14 @@ fn model(app: &App) -> Model {
     Model { 
        window,
        camera: viewer(
-        [0., 1.2, 4.], 
-        [0., 0., 0.],
-        [0., 1., 0.]),
+        [0., 1., -2.], 
+        [0., 0.5, 0.],
+        [0., 1.2, 0.]),
         perspective_proj: perspective_projection(
             std::f32::consts::PI/4., 
-            viewport.h() / viewport.w(), 
+            viewport.w() / viewport.h(), 
             100., 
-            2.2),
+            -3.2),
         zoff: 0.0,
         xoff: 0.0
     }
@@ -52,9 +59,9 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
         Resized(dim) => {
             model.perspective_proj = perspective_projection(
                 std::f32::consts::PI/4., 
-                dim[1] / dim[0], 
+                dim[0] / dim[1], 
                 100., 
-                2.2)
+                -3.2)
         }
 
         _ => {}
@@ -63,8 +70,8 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
 }
 
 fn update(_app: &App, model: &mut Model, update: Update) {
-    model.zoff -= 0.1;
-    model.xoff += 0.08;
+    model.zoff += 0.1;
+    //model.xoff -= 0.08;
 }
 
 
@@ -84,9 +91,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let viewport = app.window_rect();
 
     let mut surface: Vec<Vertex> = vec![];
-    let mut edges: Vec<(usize, usize)> = vec![];
+    let mut edges: Vec<Edge> = vec![];
 
-    let  perlin = Perlin::new(1);
+    let  perlin = Perlin::new();
     
     let len = 60;
     
@@ -107,9 +114,9 @@ fn view(app: &App, model: &Model, frame: Frame) {
             surface.push(v);
 
             if x < len -1 && z < len - 1 {
-                edges.push((z*len + x, z*len + x + 1));
-                edges.push((z*len + x, (z+1)*len + x));
-                edges.push((z*len + x + 1, (z+1)*len + x));
+                edges.push(Edge::new(z*len + x, z*len + x + 1));
+                edges.push(Edge::new(z*len + x, (z+1)*len + x));
+                edges.push(Edge::new(z*len + x + 1, (z+1)*len + x));
             }
             xoff += 0.09;
         }
@@ -129,21 +136,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let mat = (model.perspective_proj * model.camera * transform * local)
         .norm_z(viewport.w() as f32, viewport.h() as f32);
 
-    draw_mesh(&draw, mat);
+    mat.draw(&draw);
 
     draw.to_frame(app, &frame).unwrap();
     
-}
-
-
-fn draw_mesh(draw: &Draw, mesh: Mesh) {
-    for (from, to) in mesh.edges {
-        draw.line()
-            .stroke_weight(1.)
-            .color(BLACK)
-            .points(
-                pt2(mesh.vertexes[from].x, mesh.vertexes[from].y), 
-                pt2(mesh.vertexes[to].x, mesh.vertexes[to].y)
-            );
-    }
 }
