@@ -1,12 +1,14 @@
 use crate::noise::{NoiseFn, Perlin};
 use common::model::figure::*;
 use common::model::mat::*;
+use lyon::geom::euclid::default;
 use nannou::color::BLACK;
 use nannou::color::*;
 use nannou::event::WindowEvent::*;
 use nannou::event::*;
 use nannou::geom::pt2;
 use nannou::*;
+use winit::event::VirtualKeyCode::*;
 
 use nannou::prelude::WindowId;
 
@@ -24,9 +26,9 @@ struct Model {
     mouse_x: f32,
     mouse_y: f32,
     mouse_pressed: bool,
+    alt: bool,
+    zoom: f32,
 }
-
-
 
 fn main() {
     nannou::app(model).update(update).run();
@@ -36,9 +38,9 @@ fn model(app: &App) -> Model {
     let window = app.new_window().event(event).view(view).build().unwrap();
     let viewport = app.window_rect();
 
-    let eye = [0.5, 1.0, -5.];
+    let eye = [0.5, 1.0, -9.];
     let at = [0., 0., 0.];
-    let up = [0., 0.1, 0.];
+    let up = [0., 1.0, 0.];
 
     Model {
         window,
@@ -59,11 +61,43 @@ fn model(app: &App) -> Model {
         mouse_x: 0.0,
         mouse_y: 0.0,
         mouse_pressed: false,
+        alt: false,
+        zoom: 1.0,
     }
 }
 
 fn event(_app: &App, model: &mut Model, event: WindowEvent) {
     match event {
+        KeyPressed(key) => match key {
+            Left => model.camera = model.camera * rotate_y_mat(0.001 * 180.0 / 3.1425),
+            Right => model.camera = model.camera * rotate_y_mat(-0.001 * 180.0 / 3.1425),
+            Up => {
+                if !model.alt {
+                    model.camera = model.camera * rotate_x_mat(0.001 * 180.0 / 3.1425)
+                } else {
+                    //model.eye[2] += 0.1;
+                    //model.camera = viewer(model.eye, model.at, model.up)
+                    model.zoom += 0.001;
+                    model.camera = model.camera * scale_mat(model.zoom, model.zoom, model.zoom)
+                }
+            }
+            Down => {
+                if !model.alt {
+                    model.camera = model.camera * rotate_x_mat(-0.001 * 180.0 / 3.1425)
+                } else {
+                    model.zoom += 0.001;
+                    model.camera = model.camera * scale_mat(1.0/model.zoom, 1.0/model.zoom, 1.0/model.zoom)
+                }
+            }
+            LAlt => model.alt = true,
+            _ => {}
+        },
+
+        KeyReleased(key) => match key {
+            LAlt => model.alt = false,
+            _ => {}
+        },
+
         MousePressed(key) => {
             model.mouse_pressed = true;
             model.mouse_x_pressed = model.mouse_x;
@@ -159,5 +193,3 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw.to_frame(app, &frame).unwrap();
 }
-
-
