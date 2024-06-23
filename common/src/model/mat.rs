@@ -69,7 +69,8 @@ impl Mul<Mesh> for Mat4x4 {
         }
         Mesh{
             vertexes: nv,
-            edges: rhs.edges
+            edges: rhs.edges,
+            faces: rhs.faces
         }
     }
 }

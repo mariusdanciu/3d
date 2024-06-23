@@ -1,20 +1,15 @@
 
 use common::model::figure::*;
 use common::model::mat::*;
-use nannou::color::BLACK;
-use nannou::geom::pt2;
+
 use nannou::event::*;
 use nannou::event::WindowEvent::*;
 use nannou::color::*;
 use nannou::*;
 use crate::noise::{Perlin, NoiseFn};
 
-use nannou::prelude::WindowId;
-
-
 
 struct Model {
-    window: WindowId,
     camera: Mat4x4,
     perspective_proj: Mat4x4,
     zoff: f32,
@@ -29,13 +24,12 @@ fn main() {
 }
 
 fn model(app: &App) -> Model {
-    let window = app.new_window()
+    app.new_window()
         .event(event)
         .view(view).build().unwrap();
     let viewport = app.window_rect();
     
     Model { 
-       window,
        camera: viewer(
         [0., 1., -2.], 
         [0., 0.5, 0.],
@@ -69,7 +63,7 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
     }
 }
 
-fn update(_app: &App, model: &mut Model, update: Update) {
+fn update(_app: &App, model: &mut Model, _update: Update) {
     model.zoff += 0.1;
     //model.xoff -= 0.08;
 }
@@ -127,14 +121,15 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let local = Mesh{
         vertexes: surface,
-        edges: edges
+        edges: edges,
+        faces: vec![],
     };
 
 
     let transform = translation_mat(-1., 0., 0.);
 
     let mat = (model.perspective_proj * model.camera * transform * local)
-        .norm_z(viewport.w() as f32, viewport.h() as f32);
+        .to_screen(viewport.w() as f32, viewport.h() as f32);
 
     mat.draw(&draw);
 

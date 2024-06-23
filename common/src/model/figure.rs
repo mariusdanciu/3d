@@ -1,6 +1,6 @@
 use nannou::{
     color::{rgb, BLACK},
-    geom::pt2,
+    geom::{pt2, Point2},
     Draw,
 };
 
@@ -17,17 +17,8 @@ impl Vertex {
         [self.x, self.y, self.z, self.w]
     }
 
-    pub fn norm_z(self, x_size: f32, y_size: f32) -> Vertex {
-        if self.w != 0.0 {
-            return Vertex {
-                x: self.x / self.w * x_size,
-                y: -self.y / self.w * y_size,
-                z: self.z / self.w,
-                w: 1. / self.w,
-            };
-        }
-
-        self
+    pub fn norm_z(self, x_size: f32, y_size: f32) -> Point2 {
+        Point2::from_slice(&[self.x / self.w * x_size, -self.y / self.w * y_size])
     }
 }
 
@@ -37,6 +28,11 @@ pub struct Edge {
     pub to: usize,
     pub color: rgb::Srgb<u8>,
     pub text: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct Face {
+    pub vertexes: Vec<usize>,
 }
 
 impl Edge {
@@ -82,6 +78,48 @@ impl Default for Edge {
 pub struct Mesh {
     pub vertexes: Vec<Vertex>,
     pub edges: Vec<Edge>,
+    pub faces: Vec<Face>,
+}
+
+#[derive(Debug)]
+pub struct Screen {
+    pub points: Vec<Point2>,
+    pub edges: Vec<Edge>,
+    pub faces: Vec<Face>,
+}
+
+impl Screen {
+    pub fn draw(&self, draw: &Draw) {
+        for edge in self.edges.as_slice() {
+            draw.line()
+                .stroke_weight(1.)
+                .color(edge.color)
+                .points(self.points[edge.from], self.points[edge.to]);
+            if let Some(txt) = &edge.text {
+                draw.text(txt.as_str())
+                    .xy(pt2(self.points[edge.to].x, self.points[edge.to].y + 10.0))
+                    .color(edge.color);
+            }
+        }
+    }
+
+    pub fn draw_faces(&self, draw: &Draw) {
+        for face in self.faces.as_slice() {
+            let mut points = vec![] as Vec<Point2>;
+            for v in face.vertexes.as_slice() {
+                points.push(self.points[*v])
+            }
+            points.push(pt2(
+                self.points[face.vertexes[0]].x,
+                self.points[face.vertexes[0]].y,
+            ));
+
+            draw.polyline()
+                .stroke_weight(1.)
+                .color(BLACK)
+                .points(points);
+        }
+    }
 }
 
 impl From<[f32; 4]> for Vertex {
@@ -96,30 +134,17 @@ impl From<[f32; 4]> for Vertex {
 }
 
 impl Mesh {
-    pub fn norm_z(self, x_size: f32, y_size: f32) -> Mesh {
-        let mut nv: Vec<Vertex> = vec![];
+    pub fn to_screen(self, x_size: f32, y_size: f32) -> Screen {
+        let mut nv: Vec<Point2> = vec![];
 
         for v in self.vertexes {
             nv.push(v.norm_z(x_size, y_size));
         }
 
-        Mesh {
-            vertexes: nv,
+        Screen {
+            points: nv,
             edges: self.edges,
-        }
-    }
-
-    pub fn draw(self, draw: &Draw) {
-        for edge in self.edges {
-            draw.line().stroke_weight(1.).color(edge.color).points(
-                pt2(self.vertexes[edge.from].x, self.vertexes[edge.from].y),
-                pt2(self.vertexes[edge.to].x, self.vertexes[edge.to].y),
-            );
-            if let Some(txt) = edge.text {
-                draw.text(txt.as_str())
-                    .xy(pt2(self.vertexes[edge.to].x, self.vertexes[edge.to].y + 10.0))
-                    .color(edge.color);
-            }
+            faces: self.faces,
         }
     }
 }
