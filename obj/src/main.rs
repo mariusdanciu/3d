@@ -1,3 +1,4 @@
+use std::rc::Rc;
 
 use common::model::figure::*;
 use common::model::mat::*;
@@ -6,6 +7,7 @@ use nannou::event::WindowEvent::*;
 use nannou::event::*;
 use nannou::*;
 use winit::event::VirtualKeyCode::*;
+use std::cell::RefCell;
 
 struct Model {
     camera: Mat4x4,
@@ -17,6 +19,7 @@ struct Model {
     mouse_pressed: bool,
     alt: bool,
     zoom: f32,
+    mesh: Mesh,
 }
 
 fn main() {
@@ -30,6 +33,41 @@ fn model(app: &App) -> Model {
     let eye = [0.5, 1.0, -3.];
     let at = [0., 0., 0.];
     let up = [0., 1.0, 0.];
+
+    let mut mesh = Mesh::new();
+
+    let axis = mesh.push_object("axis");
+    axis.push_vertex(Vertex::from([0., 0., 0., 1.]));
+    axis.push_vertex(Vertex::from([0.1, 0., 0., 1.]));
+    axis.push_vertex(Vertex::from([0., 0.1, 0., 1.]));
+    axis.push_vertex(Vertex::from([0., 0., 0.1, 1.]));
+
+    axis.push_edge(Edge::new_color(0, 1, RED).text("X"));
+    axis.push_edge(Edge::new_color(0, 2, RED).text("Y"));
+    axis.push_edge(Edge::new_color(0, 3, RED).text("Z"));
+
+
+    let cube = mesh.push_object("cube");
+    cube.push_vertex(Vertex::from([0.3, 0.3, 0., 1.]));
+    cube.push_vertex(Vertex::from([0.6, 0.3, 0., 1.]));
+    cube.push_vertex(Vertex::from([0.6, 0., 0., 1.]));
+    cube.push_vertex(Vertex::from([0.3, 0., 0., 1.]));
+
+    cube.push_vertex(Vertex::from([0.3, 0.3, 0.3, 1.]));
+    cube.push_vertex(Vertex::from([0.6, 0.3, 0.3, 1.]));
+    cube.push_vertex(Vertex::from([0.6, 0., 0.3, 1.]));
+    cube.push_vertex(Vertex::from([0.3, 0., 0.3, 1.]));
+
+    cube.push_face(Face::new(vec![0, 3, 2, 1]));
+    cube.push_face(Face::new(vec![0, 1, 5, 4]));
+    cube.push_face(Face::new(vec![1, 2, 6, 5]));
+    cube.push_face(Face::new(vec![3, 7, 6, 2]));
+    cube.push_face(Face::new(vec![0, 4, 7, 3]));
+    cube.push_face(Face::new(vec![4, 5, 6, 7]));
+
+
+
+
 
     Model {
         camera: viewer(eye, at, up),
@@ -46,6 +84,7 @@ fn model(app: &App) -> Model {
         mouse_pressed: false,
         alt: false,
         zoom: 1.0,
+        mesh
     }
 }
 
@@ -69,7 +108,8 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
                     model.camera = model.camera * rotate_x_mat(-0.001 * 180.0 / 3.1425)
                 } else {
                     model.zoom += 0.001;
-                    model.camera = model.camera * scale_mat(1.0/model.zoom, 1.0/model.zoom, 1.0/model.zoom)
+                    model.camera = model.camera
+                        * scale_mat(1.0 / model.zoom, 1.0 / model.zoom, 1.0 / model.zoom)
                 }
             }
             LAlt => model.alt = true,
@@ -124,51 +164,15 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let viewport = app.window_rect();
 
-    let mut vertexes: Vec<Vertex> = vec![];
-    let mut edges: Vec<Edge> = vec![];
-    let mut faces: Vec<Face> = vec![];
-
-    vertexes.push(Vertex::from([0.3, 0.3, 0., 1.]));
-    vertexes.push(Vertex::from([0.6, 0.3, 0., 1.]));
-    vertexes.push(Vertex::from([0.6, 0., 0., 1.]));
-    vertexes.push(Vertex::from([0.3, 0., 0., 1.]));
-
-    vertexes.push(Vertex::from([0.3, 0.3, 0.3, 1.]));
-    vertexes.push(Vertex::from([0.6, 0.3, 0.3, 1.]));
-    vertexes.push(Vertex::from([0.6, 0., 0.3, 1.]));
-    vertexes.push(Vertex::from([0.3, 0., 0.3, 1.]));
-
-
-    faces.push(Face { vertexes: vec![3, 2, 1, 0 ] });
-    faces.push(Face { vertexes: vec![0, 1, 5, 4 ] });
-    faces.push(Face { vertexes: vec![1, 2, 6, 5 ] });
-    faces.push(Face { vertexes: vec![3, 2, 6, 7 ] });
-    faces.push(Face { vertexes: vec![3, 7, 4, 0 ] });
-    faces.push(Face { vertexes: vec![3, 2, 6, 7 ] });
-
-
-    vertexes.push(Vertex::from([0., 0., 0., 1.]));
-    vertexes.push(Vertex::from([0.1, 0., 0., 1.]));
-    vertexes.push(Vertex::from([0., 0.1, 0., 1.]));
-    vertexes.push(Vertex::from([0., 0., 0.1, 1.]));
-
-    edges.push(Edge::new_color(8, 9, RED).text("X"));
-    edges.push(Edge::new_color(8, 10, RED).text("Y"));
-    edges.push(Edge::new_color(8, 11, RED).text("Z"));
-
-    let local = Mesh {
-        vertexes,
-        edges,
-        faces
-    };
-
     let transform = Mat4x4::unit();
 
-    let mat = (model.perspective_proj * model.camera * transform * local)
+    let mesh = model.mesh.clone();
+
+    let mat = (model.perspective_proj * model.camera * transform * mesh)
         .to_screen(viewport.w() as f32, viewport.h() as f32);
 
-    mat.draw(&draw);
     mat.draw_faces(&draw);
+    mat.draw_lines(&draw);
 
     draw.to_frame(app, &frame).unwrap();
 }

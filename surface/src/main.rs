@@ -84,9 +84,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let viewport = app.window_rect();
 
-    let mut surface: Vec<Vertex> = vec![];
-    let mut edges: Vec<Edge> = vec![];
-
     let  perlin = Perlin::new();
     
     let len = 60;
@@ -94,6 +91,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let mut zoff = model.zoff;
 
     let init_x = model.xoff;
+
+
+    let mut local = Mesh::new();
+
+    let surface = local.push_object("fabric");
 
     for z in 0..len {
 
@@ -105,25 +107,18 @@ fn view(app: &App, model: &Model, frame: Frame) {
             let height = map(noise, -1., 1., -0.08, 0.08);
             
             let v = Vertex::from([x as f32 * 0.05, height, z as f32 * 0.05, 1.]);
-            surface.push(v);
+            surface.push_vertex(v);
 
             if x < len -1 && z < len - 1 {
-                edges.push(Edge::new(z*len + x, z*len + x + 1));
-                edges.push(Edge::new(z*len + x, (z+1)*len + x));
-                edges.push(Edge::new(z*len + x + 1, (z+1)*len + x));
+                surface.push_edge(Edge::new(z*len + x, z*len + x + 1));
+                surface.push_edge(Edge::new(z*len + x, (z+1)*len + x));
+                surface.push_edge(Edge::new(z*len + x + 1, (z+1)*len + x));
             }
             xoff += 0.09;
         }
         zoff += 0.1;
     }
 
-    
-
-    let local = Mesh{
-        vertexes: surface,
-        edges: edges,
-        faces: vec![],
-    };
 
 
     let transform = translation_mat(-1., 0., 0.);
@@ -131,7 +126,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let mat = (model.perspective_proj * model.camera * transform * local)
         .to_screen(viewport.w() as f32, viewport.h() as f32);
 
-    mat.draw(&draw);
+    mat.draw_lines(&draw);
 
     draw.to_frame(app, &frame).unwrap();
     
