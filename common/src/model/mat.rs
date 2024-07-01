@@ -26,24 +26,32 @@ impl Mul<[f32; 4]> for Mat4x4 {
     type Output = [f32; 4];
 
     fn mul(self, rhs: [f32; 4]) -> Self::Output {
-        [
-            self.mat[0][0] * rhs[0]
-                + self.mat[0][1] * rhs[1]
-                + self.mat[0][2] * rhs[2]
-                + self.mat[0][3] * rhs[3],
-            self.mat[1][0] * rhs[0]
-                + self.mat[1][1] * rhs[1]
-                + self.mat[1][2] * rhs[2]
-                + self.mat[1][3] * rhs[3],
-            self.mat[2][0] * rhs[0]
-                + self.mat[2][1] * rhs[1]
-                + self.mat[2][2] * rhs[2]
-                + self.mat[2][3] * rhs[3],
-            self.mat[3][0] * rhs[0]
-                + self.mat[3][1] * rhs[1]
-                + self.mat[3][2] * rhs[2]
-                + self.mat[3][3] * rhs[3],
-        ]
+        let mut x = self.mat[0][0] * rhs[0]
+            + self.mat[0][1] * rhs[1]
+            + self.mat[0][2] * rhs[2]
+            + self.mat[0][3] * rhs[3];
+
+        let mut y = self.mat[1][0] * rhs[0]
+            + self.mat[1][1] * rhs[1]
+            + self.mat[1][2] * rhs[2]
+            + self.mat[1][3] * rhs[3];
+
+        let mut z = self.mat[2][0] * rhs[0]
+            + self.mat[2][1] * rhs[1]
+            + self.mat[2][2] * rhs[2]
+            + self.mat[2][3] * rhs[3];
+
+        let w = self.mat[3][0] * rhs[0]
+            + self.mat[3][1] * rhs[1]
+            + self.mat[3][2] * rhs[2]
+            + self.mat[3][3] * rhs[3];
+
+        if w != 0.0 {
+            x /= w;
+            y /= w;
+            z /= w;
+        }
+        [x, y, z, w]
     }
 }
 
@@ -66,12 +74,12 @@ impl Mul<Mat4x4> for Mat4x4 {
     }
 }
 
-impl Mul<Mesh> for Mat4x4 {
+impl Mul<&Mesh> for Mat4x4 {
     type Output = Mesh;
 
-    fn mul(self, rhs: Mesh) -> Self::Output {
+    fn mul(self, rhs: &Mesh) -> Self::Output {
         let mut new_mash = Mesh::new();
-        for (k, v) in rhs.objects.into_iter(){
+        for (k, v) in rhs.objects.iter() {
             let mut nv: Vec<Vertex> = vec![];
             for v in &v.vertexes {
                 let p: [f32; 4] = self * v.to_vec();
@@ -85,7 +93,6 @@ impl Mul<Mesh> for Mat4x4 {
         new_mash
     }
 }
-
 
 pub fn translation_mat(x: f32, y: f32, z: f32) -> Mat4x4 {
     Mat4x4 {
@@ -142,7 +149,29 @@ pub fn rotate_z_mat(o: f32) -> Mat4x4 {
     }
 }
 
-fn norm(v: [f32; 3]) -> [f32; 3] {
+pub fn rotate_y_vec3(angle: f32, v: [f32; 3]) -> [f32; 3] {
+    let n = rotate_y_mat(angle) * [v[0], v[1], v[2], 1.0];
+    [n[0], n[1], n[2]]
+}
+
+pub fn rotate_y_around_p_vec3(angle: f32, v: [f32; 3], o: [f32; 3]) -> [f32; 3] {
+    let nc = [v[0] - o[0], v[1] - o[1], v[2] - o[2]];
+    let n = rotate_y_mat(angle) * [nc[0], nc[1], nc[2], 1.0];
+    [n[0] + o[0], n[1] + o[1], n[2] + o[2]]
+}
+
+pub fn rotate_x_vec3(angle: f32, v: [f32; 3]) -> [f32; 3] {
+    let n = rotate_x_mat(angle) * [v[0], v[1], v[2], 1.0];
+    [n[0], n[1], n[2]]
+}
+
+pub fn rotate_x_around_p_vec3(angle: f32, v: [f32; 3], o: [f32; 3]) -> [f32; 3] {
+    let nc = [v[0] - o[0], v[1] - o[1], v[2] - o[2]];
+    let n = rotate_x_mat(angle) * [nc[0], nc[1], nc[2], 1.0];
+    [n[0] + o[0], n[1] + o[1], n[2] + o[2]]
+}
+
+pub fn unit(v: [f32; 3]) -> [f32; 3] {
     let len = f32::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     [v[0] / len, v[1] / len, v[2] / len]
 }
@@ -159,37 +188,42 @@ pub fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     ]
 }
 
-fn dot(l: [f32; 3], r: [f32; 3]) -> f32 {
+pub fn dot(l: [f32; 3], r: [f32; 3]) -> f32 {
     l[0] * r[0] + l[1] * r[1] + l[2] * r[2]
 }
 
 pub fn viewer(eye: [f32; 3], at: [f32; 3], up: [f32; 3]) -> Mat4x4 {
-    let z_axis = norm(diff(eye, at));
+    let n = unit(diff(eye, at));
 
-    let x_axis = norm(cross(up, z_axis));
+    let u = unit(cross(up, n));
 
-    let y_axis = cross(z_axis, x_axis);
+    let v = cross(n, u);
 
     Mat4x4 {
         mat: [
-            [x_axis[0], x_axis[1], x_axis[2], -dot(x_axis, eye)],
-            [y_axis[0], y_axis[1], y_axis[2], -dot(y_axis, eye)],
-            [z_axis[0], z_axis[1], z_axis[2], -dot(z_axis, eye)],
+            [u[0], u[1], u[2], -dot(u, eye)],
+            [v[0], v[1], v[2], -dot(v, eye)],
+            [n[0], n[1], n[2], -dot(n, eye)],
             [0., 0., 0., 1.],
         ],
     }
 }
 
-pub fn perspective_projection(fov: f32, aspect: f32, z_far: f32, z_near: f32) -> Mat4x4 {
-    let tan = 1. / (fov * 0.5).tan();
-    let dist = z_near - z_far;
+
+pub fn perspective_projection(fov: f32, aspect: f32, f: f32, n: f32) -> Mat4x4 {
+    let scale = (fov * 0.5 * std::f32::consts::PI / 180.).tan() * n;
+    let r = aspect * scale;
+    //let l = -r; 
+    let t = scale;
+    //let b = -t; 
+
 
     Mat4x4 {
         mat: [
-            [tan / aspect, 0., 0., 0.],
-            [0., tan, 0., 0.],
-            [0., 0., (-z_near - z_far) / dist, 2. * z_far * z_near / dist],
-            [0., 0., 1., 0.],
+            [n / r,             0.,                       0.,                        0.],
+            [0.,             n / t,                       0.,                        0.],
+            [0.,                0.,       (-f - n) / (f - n),        2.*f * n / (f - n)],
+            [0.,                0.,                      -1.,                        0.],
         ],
     }
 }

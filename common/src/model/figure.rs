@@ -6,7 +6,7 @@ use nannou::{
     Draw,
 };
 
-use super::mat::{cross, diff};
+use super::mat::{cross, diff, dot, unit, Mat4x4};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Vertex {
@@ -17,6 +17,22 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    pub fn from_vec4(v: [f32; 4]) -> Vertex {
+        Vertex {
+            x: v[0],
+            y: v[1],
+            z: v[2],
+            w: v[3],
+        }
+    }
+    pub fn from_vec(v: [f32; 3]) -> Vertex {
+        Vertex {
+            x: v[0],
+            y: v[1],
+            z: v[2],
+            w: 1.0,
+        }
+    }
     pub fn to_vec(&self) -> [f32; 4] {
         [self.x, self.y, self.z, self.w]
     }
@@ -25,8 +41,11 @@ impl Vertex {
         [self.x, self.y, self.z]
     }
 
-    pub fn norm_z(self, x_size: f32, y_size: f32) -> Point2 {
-        Point2::from_slice(&[self.x / self.w * x_size, -self.y / self.w * y_size])
+    pub fn screen(self, x_size: f32, y_size: f32) -> Point2 {
+        let screen_x = self.x * 0.5 * x_size;
+        let screen_y = self.y * 0.5 * y_size;
+
+        return Point2::from_slice(&[screen_x, screen_y]);
     }
 }
 
@@ -41,11 +60,17 @@ pub struct Edge {
 #[derive(Debug, Clone)]
 pub struct Face {
     pub vertexes: Vec<usize>,
+    pub normal_vertex: i32,
+    pub center_vertex: i32,
 }
 
 impl Face {
     pub fn new(v: Vec<usize>) -> Face {
-        Face { vertexes: v }
+        Face {
+            vertexes: v,
+            normal_vertex: -1,
+            center_vertex: -1,
+        }
     }
 
     pub fn normal(&self, vert: &Vec<Vertex>) -> ([f32; 3], [f32; 3]) {
@@ -58,10 +83,9 @@ impl Face {
 
         let v1 = vert[self.vertexes[0]].to_vec_3();
         let v2 = vert[self.vertexes[1]].to_vec_3();
+        let v3 = vert[self.vertexes[2]].to_vec_3();
 
-        let v3 = vert[self.vertexes[len - 1]].to_vec_3();
-
-        let n = cross(diff(v1, v3), diff(v1, v2));
+        let n = cross(diff(v2, v1), diff(v3, v2));
 
         (
             [
@@ -140,6 +164,8 @@ pub struct Screen {
 impl Screen {
     pub fn draw_lines(&self, draw: &Draw) {
         for (k, v) in self.objects.iter() {
+            let last = v.points.len() - 1;
+
             for edge in v.edges.as_slice() {
                 draw.line()
                     .stroke_weight(1.)
@@ -158,9 +184,11 @@ impl Screen {
         for (k, v) in self.objects.iter() {
             for face in v.faces.as_slice() {
                 let mut points = vec![] as Vec<Point2>;
+
                 for vt in face.vertexes.as_slice() {
                     points.push(v.points[*vt])
                 }
+
                 points.push(pt2(
                     v.points[face.vertexes[0]].x,
                     v.points[face.vertexes[0]].y,
@@ -188,27 +216,50 @@ impl From<[f32; 4]> for Vertex {
 
 impl Mesh {
     pub fn new() -> Mesh {
-        Mesh{
-            objects: HashMap::new()
+        Mesh {
+            objects: HashMap::new(),
         }
     }
 
-    pub fn to_screen(self, x_size: f32, y_size: f32) -> Screen {
+    pub fn to_screen(&mut self, eye: [f32; 4], x_size: f32, y_size: f32) -> Screen {
         let mut scr = Screen {
             objects: HashMap::new(),
         };
+        let veye = Vertex::from_vec4(eye);
+        let neye = veye.screen(x_size, y_size);
+        println!("2D Eye {:?}", neye);
 
-        for (k, v) in self.objects.into_iter() {
+        for (k, v) in self.objects.iter_mut() {
             let mut nv: Vec<Point2> = vec![];
-            for v in v.vertexes {
-                nv.push(v.norm_z(x_size, y_size));
+
+            for v in v.vertexes.iter() {
+                let p = v.screen(x_size, y_size);
+                nv.push(p);
             }
+            nv.push(neye);
+
+            let idx = nv.len() - 1;
+            let mut nf: Vec<Face> = vec![];
+
+            for f in v.faces.iter() {
+                v.edges.push(Edge::new(f.center_vertex as usize, idx));
+
+                let c = v.vertexes[f.center_vertex as usize].to_vec_3();
+                let n = v.vertexes[f.normal_vertex as usize].to_vec_3();
+                let n_c = unit(diff(n, c));
+
+                let p = unit(diff(c, veye.to_vec_3()));
+                if dot(p, n_c) < 0. {
+                    nf.push(f.clone());
+                }
+            }
+
             scr.objects.insert(
-                k,
+                k.into(),
                 Obj2D {
                     points: nv,
-                    edges: v.edges,
-                    faces: v.faces,
+                    edges: v.edges.clone(),
+                    faces: nf,
                 },
             );
         }
@@ -224,9 +275,8 @@ impl Mesh {
 }
 
 impl Obj3D {
-
     pub fn new() -> Obj3D {
-        Obj3D{
+        Obj3D {
             vertexes: vec![],
             faces: vec![],
             edges: vec![],
@@ -236,11 +286,16 @@ impl Obj3D {
         let last_v_idx = self.vertexes.len() - 1;
 
         let (normal, m) = face.normal(&self.vertexes);
+
         self.push_vertex(Vertex::from([m[0], m[1], m[2], 1.]));
         self.push_vertex(Vertex::from([normal[0], normal[1], normal[2], 1.]));
         self.push_edge(Edge::new_color(last_v_idx + 1, last_v_idx + 2, BLUE));
 
-        self.faces.push(face);
+        let mut f = face.clone();
+        f.normal_vertex = (last_v_idx + 2) as i32;
+        f.center_vertex = (last_v_idx + 1) as i32;
+
+        self.faces.push(f);
         self
     }
 
@@ -249,10 +304,9 @@ impl Obj3D {
         self
     }
 
-
     pub fn push_vertexes(&mut self, v: Vec<Vertex>) -> &Obj3D {
         for vt in v {
-            self.vertexes.push(vt);
+            self.push_vertex(vt);
         }
         self
     }
