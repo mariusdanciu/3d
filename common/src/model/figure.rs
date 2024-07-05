@@ -1,7 +1,7 @@
 use std::{collections::HashMap, iter::Map, ops::Sub};
 
 use nannou::{
-    color::{rgb, BLACK, BLUE},
+    color::{rgb, BLACK, BLUE, GREEN},
     geom::{pt2, Point2},
     Draw,
 };
@@ -59,13 +59,14 @@ pub struct Edge {
 
 #[derive(Debug, Clone)]
 pub struct Face {
-    pub vertexes: Vec<usize>,
+    pub vertexes: [usize; 3],
     pub normal_vertex: i32,
     pub center_vertex: i32,
 }
 
+
 impl Face {
-    pub fn new(v: Vec<usize>) -> Face {
+    pub fn new(v: [usize; 3]) -> Face {
         Face {
             vertexes: v,
             normal_vertex: -1,
@@ -97,6 +98,7 @@ impl Face {
         )
     }
 }
+
 
 impl Edge {
     pub fn new(from: usize, to: usize) -> Edge {
@@ -198,6 +200,17 @@ impl Screen {
                     .stroke_weight(1.)
                     .color(BLACK)
                     .points(points);
+/* 
+                let last = v.points.len() - 1;
+
+                draw.line().stroke_weight(1.).color(GREEN).points(
+                    pt2(
+                        v.points[face.center_vertex as usize].x,
+                        v.points[face.center_vertex as usize].y,
+                    ),
+                    pt2(v.points[last].x, v.points[last].y),
+                );
+*/
             }
         }
     }
@@ -221,13 +234,27 @@ impl Mesh {
         }
     }
 
-    pub fn to_screen(&mut self, eye: [f32; 4], x_size: f32, y_size: f32) -> Screen {
+    pub fn set_camera(&mut self, eye: [f32; 3]) -> &Self {
+        for (_, v) in self.objects.iter_mut() {
+            v.push_vertex(Vertex::from_vec(eye));
+
+            let new_faces: Vec<Face> = v.faces.clone().into_iter().filter(|face| {
+                let c = v.vertexes[face.center_vertex as usize].to_vec_3();
+                let n =  v.vertexes[face.normal_vertex as usize].to_vec_3();
+
+                let normal = unit(diff(n, c));
+                let dir = unit(diff(c, eye));
+                dot(normal, dir) < 0.0
+            }).collect();
+            v.faces = new_faces;
+        }
+        self
+    }
+
+    pub fn to_screen(&mut self, x_size: f32, y_size: f32) -> Screen {
         let mut scr = Screen {
             objects: HashMap::new(),
         };
-        let veye = Vertex::from_vec4(eye);
-        let neye = veye.screen(x_size, y_size);
-        println!("2D Eye {:?}", neye);
 
         for (k, v) in self.objects.iter_mut() {
             let mut nv: Vec<Point2> = vec![];
@@ -236,30 +263,13 @@ impl Mesh {
                 let p = v.screen(x_size, y_size);
                 nv.push(p);
             }
-            nv.push(neye);
-
-            let idx = nv.len() - 1;
-            let mut nf: Vec<Face> = vec![];
-
-            for f in v.faces.iter() {
-                v.edges.push(Edge::new(f.center_vertex as usize, idx));
-
-                let c = v.vertexes[f.center_vertex as usize].to_vec_3();
-                let n = v.vertexes[f.normal_vertex as usize].to_vec_3();
-                let n_c = unit(diff(n, c));
-
-                let p = unit(diff(c, veye.to_vec_3()));
-                if dot(p, n_c) < 0. {
-                    nf.push(f.clone());
-                }
-            }
 
             scr.objects.insert(
                 k.into(),
                 Obj2D {
                     points: nv,
                     edges: v.edges.clone(),
-                    faces: nf,
+                    faces: v.faces.clone(),
                 },
             );
         }
@@ -289,7 +299,7 @@ impl Obj3D {
 
         self.push_vertex(Vertex::from([m[0], m[1], m[2], 1.]));
         self.push_vertex(Vertex::from([normal[0], normal[1], normal[2], 1.]));
-        self.push_edge(Edge::new_color(last_v_idx + 1, last_v_idx + 2, BLUE));
+        //self.push_edge(Edge::new_color(last_v_idx + 1, last_v_idx + 2, BLUE));
 
         let mut f = face.clone();
         f.normal_vertex = (last_v_idx + 2) as i32;

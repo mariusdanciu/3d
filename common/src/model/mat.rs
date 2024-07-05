@@ -20,6 +20,47 @@ impl Mat4x4 {
             ],
         }
     }
+
+    pub fn transpose(&self) -> Mat4x4 {
+        Mat4x4 {
+            mat: [
+                [
+                    self.mat[0][0],
+                    self.mat[1][0],
+                    self.mat[2][0],
+                    self.mat[3][0],
+                ],
+                [
+                    self.mat[0][1],
+                    self.mat[1][1],
+                    self.mat[2][1],
+                    self.mat[3][1],
+                ],
+                [
+                    self.mat[0][2],
+                    self.mat[1][2],
+                    self.mat[2][2],
+                    self.mat[3][2],
+                ],
+                [
+                    self.mat[0][3],
+                    self.mat[1][3],
+                    self.mat[2][3],
+                    self.mat[3][3],
+                ],
+            ],
+        }
+    }
+
+    pub fn mul_dir(&self, rhs: [f32; 3]) -> [f32; 3] {
+        let x = self.mat[0][0] * rhs[0] + self.mat[0][1] * rhs[1] + self.mat[0][2] * rhs[2];
+
+        let y = self.mat[1][0] * rhs[0] + self.mat[1][1] * rhs[1] + self.mat[1][2] * rhs[2];
+
+        let z = self.mat[2][0] * rhs[0] + self.mat[2][1] * rhs[1] + self.mat[2][2] * rhs[2];
+
+        [x, y, z]
+    }
 }
 
 impl Mul<[f32; 4]> for Mat4x4 {
@@ -46,7 +87,7 @@ impl Mul<[f32; 4]> for Mat4x4 {
             + self.mat[3][2] * rhs[2]
             + self.mat[3][3] * rhs[3];
 
-        if w != 0.0 {
+        if w != 0.0 && w != 1.0 {
             x /= w;
             y /= w;
             z /= w;
@@ -188,8 +229,32 @@ pub fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     ]
 }
 
+pub fn comp_dot(l: [f32; 3], r: [f32; 3]) -> [f32; 3] {
+    [l[0] * r[0], l[1] * r[1], l[2] * r[2]]
+}
+
 pub fn dot(l: [f32; 3], r: [f32; 3]) -> f32 {
     l[0] * r[0] + l[1] * r[1] + l[2] * r[2]
+}
+
+pub fn inv(l: [f32; 3]) -> [f32; 3] {
+    [1. / l[0], 1. / l[1], 1. / l[2]]
+}
+
+pub fn mul(l: [f32; 3], r: f32) -> [f32; 3] {
+    [l[0] * r, l[1] * r, l[2] * r]
+}
+
+pub fn add(l: [f32; 3], r: [f32; 3]) -> [f32; 3] {
+    [l[0] + r[0], l[1] + r[1], l[2] + r[2]]
+}
+
+pub fn add_scalar(l: [f32; 3], r: f32) -> [f32; 3] {
+    [l[0] + r, l[1] + r, l[2] + r]
+}
+
+pub fn neg(l: [f32; 3]) -> [f32; 3] {
+    [-l[0], -l[1], -l[2]]
 }
 
 pub fn viewer(eye: [f32; 3], at: [f32; 3], up: [f32; 3]) -> Mat4x4 {
@@ -209,21 +274,19 @@ pub fn viewer(eye: [f32; 3], at: [f32; 3], up: [f32; 3]) -> Mat4x4 {
     }
 }
 
-
 pub fn perspective_projection(fov: f32, aspect: f32, f: f32, n: f32) -> Mat4x4 {
     let scale = (fov * 0.5 * std::f32::consts::PI / 180.).tan() * n;
     let r = aspect * scale;
-    //let l = -r; 
+    //let l = -r;
     let t = scale;
-    //let b = -t; 
-
+    //let b = -t;
 
     Mat4x4 {
         mat: [
-            [n / r,             0.,                       0.,                        0.],
-            [0.,             n / t,                       0.,                        0.],
-            [0.,                0.,       (-f - n) / (f - n),        2.*f * n / (f - n)],
-            [0.,                0.,                      -1.,                        0.],
+            [n / r, 0., 0., 0.],
+            [0., n / t, 0., 0.],
+            [0., 0., (-f - n) / (f - n), -2. * f * n / (f - n)],
+            [0., 0., -1., 0.],
         ],
     }
 }

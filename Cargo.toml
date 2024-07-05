@@ -1,2 +1,2 @@
 [workspace]
-members = ["common", "surface", "obj"]
+members = ["common", "surface", "obj", "ray"]

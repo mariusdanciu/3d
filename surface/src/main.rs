@@ -100,7 +100,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let transform = translation_mat(-1., 0., 0.);
 
     let mat = (model.perspective_proj * model.camera * transform * &local).to_screen(
-        [0., 0., 0., 0.],
         viewport.w() as f32,
         viewport.h() as f32,
     );
